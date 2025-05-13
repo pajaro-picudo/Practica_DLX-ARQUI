@@ -36,147 +36,303 @@ main:
     ;; Cargar el número de iteraciones
     LW R1, wIteraciones(R0)
     BEQZ R1, fin_programa    ;; Si iteraciones == 0, terminar
-    
+
     ;; Inicializar contador k (R2) y puntero (R3)
     ADD R2, R0, R0           ;; k = 0
     ADD R3, R0, R0           ;; offset = 0
-    
+
     ;; Inicializar pi a 0
     LF F0, pi(R0)
     MOVF F31, F0             ;; f31 = 0.0 (acumulador de pi)
-    
+
     ;; Inicializar 1/16^k a 1.0 (para k=0)
     LF F3, float1(R0)        ;; F3 = 1.0 (calculoA inicial)
 
+    ;; Cargar constantes una sola vez fuera del bucle
+    LW R5, valor8(R0)        ;; 8
+    LW R7, valor1(R0)        ;; 1
+    LW R9, valor4(R0)        ;; 4
+    LW R11, valor5(R0)       ;; 5
+    LW R13, valor6(R0)       ;; 6
+    LF F5, float4(R0)        ;; 4.0
+    LF F8, float2(R0)        ;; 2.0
+    LF F2, float1(R0)        ;; 1.0
+    LF F1, floatInv16(R0)    ;; 0.0625
+
 bucle_principal:
-    ;; 1. Calcular 16^k (potencias16[k])
-    JAL calcular_potencia16
-    SW potencias16(R3), R4    ;; Guardar 16^k
-    
-    ;; 2. Calcular 1/16^k (calculoA[k])
-    ;; F3 ya contiene el valor anterior de 1/16^k
-    BEQZ R2, guardar_calculoA ;; Para k=0, no multiplicar
-    LF F1, floatInv16(R0)    ;; Cargar 1/16 (0.0625)
-    MULTF F3, F3, F1         ;; F3 = F3 * (1/16) (nuevo 1/16^k)
+    ;; Iteración para k
+    SLL R4, R7, R2
+    SW potencias16(R3), R4
+
+    BEQZ R2, skip_multf
+    MULTF F3, F3, F1
     NOP
     NOP
     NOP
-guardar_calculoA:
-    SF calculoA(R3), F3      ;; Guardar 1/16^k
-    
-    ;; 3. Calcular 8k (kpor8[k])
-    LW R5, valor8(R0)        ;; Cargar 8
-    MULT R6, R2, R5          ;; 8*k
-    SW kpor8(R3), R6         ;; Guardar 8k
-    
-    ;; 4. Calcular 8k+1 (kpor8mas1[k])
-    LW R7, valor1(R0)        ;; Cargar 1
-    ADD R8, R6, R7           ;; 8k+1
-    SW kpor8mas1(R3), R8     ;; Guardar 8k+1
-    
-    ;; 5. Calcular 8k+4 (kpor8mas4[k])
-    LW R9, valor4(R0)        ;; Cargar 4
-    ADD R10, R6, R9          ;; 8k+4
-    SW kpor8mas4(R3), R10    ;; Guardar 8k+4
-    
-    ;; 6. Calcular 8k+5 (kpor8mas5[k])
-    LW R11, valor5(R0)       ;; Cargar 5
-    ADD R12, R6, R11         ;; 8k+5
-    SW kpor8mas5(R3), R12    ;; Guardar 8k+5
-    
-    ;; 7. Calcular 8k+6 (kpor8mas6[k])
-    LW R13, valor6(R0)       ;; Cargar 6
-    ADD R14, R6, R13         ;; 8k+6
-    SW kpor8mas6(R3), R14    ;; Guardar 8k+6
-    
-    ;; 8. Calcular 4/(8k+1) (calculoB[k])
-    MOVI2FP F4, R8           ;; Mover 8k+1 a F4
-    CVTI2F F4, F4            ;; Convertir a flotante
-    LF F5, float4(R0)        ;; Cargar 4.0
-    DIVF F6, F5, F4          ;; 4/(8k+1)
+skip_multf:
+    SF calculoA(R3), F3
+
+    MULT R6, R2, R5
+    ADD R8, R6, R7
+    ADD R10, R6, R9
+    ADD R12, R6, R11
+    ADD R14, R6, R13
+    SW kpor8(R3), R6
+    SW kpor8mas1(R3), R8
+    SW kpor8mas4(R3), R10
+    SW kpor8mas5(R3), R12
+    SW kpor8mas6(R3), R14
+
+    MOVI2FP F4, R8
+    CVTI2F F4, F4
+    DIVF F6, F5, F4
     NOP
     NOP
     NOP
     NOP
-    SF calculoB(R3), F6      ;; Guardar 4/(8k+1)
-    
-    ;; 9. Calcular 2/(8k+4) (calculoC[k])
-    MOVI2FP F7, R10          ;; Mover 8k+4 a F7
-    CVTI2F F7, F7            ;; Convertir a flotante
-    LF F8, float2(R0)        ;; Cargar 2.0
-    DIVF F9, F8, F7          ;; 2/(8k+4)
+    SF calculoB(R3), F6
+
+    MOVI2FP F7, R10
+    CVTI2F F7, F7
+    DIVF F9, F8, F7
     NOP
     NOP
     NOP
     NOP
-    SF calculoC(R3), F9      ;; Guardar 2/(8k+4)
-    
-    ;; 10. Calcular 1/(8k+5) (calculoD[k])
-    MOVI2FP F10, R12         ;; Mover 8k+5 a F10
-    CVTI2F F10, F10          ;; Convertir a flotante
-    LF F2, float1(R0)        ;; Cargar 1.0
-    DIVF F11, F2, F10        ;; 1/(8k+5)
+    SF calculoC(R3), F9
+
+    MOVI2FP F10, R12
+    CVTI2F F10, F10
+    DIVF F11, F2, F10
     NOP
     NOP
     NOP
     NOP
-    SF calculoD(R3), F11     ;; Guardar 1/(8k+5)
-    
-    ;; 11. Calcular 1/(8k+6) (calculoE[k])
-    MOVI2FP F12, R14         ;; Mover 8k+6 a F12
-    CVTI2F F12, F12          ;; Convertir a flotante
-    DIVF F13, F2, F12        ;; 1/(8k+6)
+    SF calculoD(R3), F11
+
+    MOVI2FP F12, R14
+    CVTI2F F12, F12
+    DIVF F13, F2, F12
     NOP
     NOP
     NOP
     NOP
-    SF calculoE(R3), F13     ;; Guardar 1/(8k+6)
-    
-    ;; 12. Calcular calculoBCDE = B - C - D - E
-    ADDF F14, F11, F13       ;; F14 = D + E
-    NOP                      ;; Evitar dependencia
-    SUBF F15, F6, F9         ;; F15 = B - C
-    NOP                      ;; Evitar dependencia
-    SUBF F14, F15, F14       ;; F14 = (B - C) - (D + E)
-    NOP                      ;; Evitar dependencia
-    SF calculoBCDE(R3), F14  ;; Guardar B - C - D - E
-    
-    ;; 13. Calcular calculoITE = (1/16^k) * (B - C - D - E)
-    MULTF F15, F3, F14       ;; (1/16^k) * (B - C - D - E)
+    SF calculoE(R3), F13
+
+    ADDF F14, F11, F13
+    NOP
+    SUBF F15, F6, F9
+    NOP
+    SUBF F14, F15, F14
+    NOP
+    SF calculoBCDE(R3), F14
+
+    MULTF F16, F3, F14
     NOP
     NOP
-    SF calculoITE(R3), F15   ;; Guardar término de la iteración
-    
-    ;; 14. Acumular en pi (calculoPI)
-    ADDF F31, F31, F15       ;; Sumar término al acumulador
+    SF calculoITE(R3), F16
+
+    ADDF F31, F31, F16
     NOP
     NOP
-    SF calculoPI(R3), F31    ;; Guardar pi acumulado
-    
-    ;; Incrementar contador y puntero
-    ADDI R2, R2, 1           ;; k++
-    ADDI R3, R3, 4           ;; offset += 4
-    
-    ;; Comprobar si hemos terminado
+    SF calculoPI(R3), F31
+
+    ;; Iteración para k+1 (solo si quedan iteraciones)
+    ADDI R20, R2, 1
+    ADDI R21, R3, 4
     LW R1, wIteraciones(R0)
-    SUB R15, R1, R2          ;; iteraciones - k
-    BNEZ R15, bucle_principal
+    SUB R22, R1, R20
+    BEQZ R22, skip_second
+    ;; Si R22 == 0, saltamos la segunda iteración
+    ;; Si R22 != 0, continuamos con la segunda iteración
+
+    SLL R24, R7, R20
+    SW potencias16(R21), R24
+
+    MULTF F17, F3, F1
+    NOP
+    NOP
+    NOP
+    SF calculoA(R21), F17
+
+    MULT R26, R20, R5
+    ADD R28, R26, R7
+    ADD R30, R26, R9
+    ADD R18, R26, R11
+    ADD R19, R26, R13
+    SW kpor8(R21), R26
+    SW kpor8mas1(R21), R28
+    SW kpor8mas4(R21), R30
+    SW kpor8mas5(R21), R18
+    SW kpor8mas6(R21), R19
+
+    MOVI2FP F18, R28
+    CVTI2F F18, F18
+    DIVF F19, F5, F18
+    NOP
+    NOP
+    NOP
+    NOP
+    SF calculoB(R21), F19
+
+    MOVI2FP F20, R30
+    CVTI2F F20, F20
+    DIVF F21, F8, F20
+    NOP
+    NOP
+    NOP
+    NOP
+    SF calculoC(R21), F21
+
+    MOVI2FP F22, R18
+    CVTI2F F22, F22
+    DIVF F23, F2, F22
+    NOP
+    NOP
+    NOP
+    NOP
+    SF calculoD(R21), F23
+
+    MOVI2FP F24, R19
+    CVTI2F F24, F24
+    DIVF F25, F2, F24
+    NOP
+    NOP
+    NOP
+    NOP
+    SF calculoE(R21), F25
+
+    ADDF F26, F23, F25
+    NOP
+    SUBF F27, F19, F21
+    NOP
+    SUBF F26, F27, F26
+    NOP
+    SF calculoBCDE(R21), F26
+
+    MULTF F28, F17, F26
+    NOP
+    NOP
+    SF calculoITE(R21), F28
+
+    ADDF F31, F31, F28
+    NOP
+    NOP
+    SF calculoPI(R21), F31
+
+skip_second:
+    ;; Incrementar contador y puntero en 2
+    ADDI R2, R2, 2
+    ADDI R3, R3, 8
+
+    ;; Comprobar si hemos terminado (R2 >= wIteraciones)
+    LW R1, wIteraciones(R0)
+    SUB R15, R2, R1        ;; R15 = R2 - wIteraciones
+    BEQZ R15, ultima_iteracion_check ;; Si R2 == wIteraciones, comprobar si falta la última iteración
+    ;; Si R15 < 0, seguimos en el bucle
+    ;; Si R15 > 0, terminamos (ya hemos sobrepasado el límite)
+    BNEZ R15, fin_programa
+    J bucle_principal
+
+ultima_iteracion_check:
+    ;; Si el número de iteraciones es impar, falta una última iteración
+    ;; Comprobamos si R2 - wIteraciones == 0 y wIteraciones es impar
+    LW R1, wIteraciones(R0)
+    ANDI R23, R1, 1        ;; R23 = wIteraciones & 1
+    BEQZ R23, fin_programa ;; Si es par, terminamos
+
+    ;; Última iteración si es impar (usa R2 y R3 actuales)
+    SLL R4, R7, R2
+    SW potencias16(R3), R4
+
+    BEQZ R2, skip_multf_final
+    MULTF F3, F3, F1
+    NOP
+    NOP
+    NOP
+skip_multf_final:
+    SF calculoA(R3), F3
+
+    MULT R6, R2, R5
+    ADD R8, R6, R7
+    ADD R10, R6, R9
+    ADD R12, R6, R11
+    ADD R14, R6, R13
+    SW kpor8(R3), R6
+    SW kpor8mas1(R3), R8
+    SW kpor8mas4(R3), R10
+    SW kpor8mas5(R3), R12
+    SW kpor8mas6(R3), R14
+
+    MOVI2FP F4, R8
+    CVTI2F F4, F4
+    DIVF F6, F5, F4
+    NOP
+    NOP
+    NOP
+    NOP
+    SF calculoB(R3), F6
+
+    MOVI2FP F7, R10
+    CVTI2F F7, F7
+    DIVF F9, F8, F7
+    NOP
+    NOP
+    NOP
+    NOP
+    SF calculoC(R3), F9
+
+    MOVI2FP F10, R12
+    CVTI2F F10, F10
+    DIVF F11, F2, F10
+    NOP
+    NOP
+    NOP
+    NOP
+    SF calculoD(R3), F11
+
+    MOVI2FP F12, R14
+    CVTI2F F12, F12
+    DIVF F13, F2, F12
+    NOP
+    NOP
+    NOP
+    NOP
+    SF calculoE(R3), F13
+
+    ADDF F14, F11, F13
+    NOP
+    SUBF F15, F6, F9
+    NOP
+    SUBF F14, F15, F14
+    NOP
+    SF calculoBCDE(R3), F14
+
+    MULTF F16, F3, F14
+    NOP
+    NOP
+    SF calculoITE(R3), F16
+
+    ADDF F31, F31, F16
+    NOP
+    NOP
+    SF calculoPI(R3), F31
 
 fin_programa:
-    TRAP 0                   ;; Terminar programa
+    TRAP 0
 
 ;; Subrutina para calcular 16^k
 calcular_potencia16:
-    ADD R4, R0, R0           ;; Inicializar resultado a 0
-    ADDI R4, R4, 1           ;; resultado = 1 (caso k=0)
-    BEQZ R2, fin_potencia    ;; Si k=0, terminar
-    ADD R16, R0, R0          ;; contador i = 0
-    ADDI R17, R0, 1          ;; valor temporal = 1
+    ADD R4, R0, R0
+    ADDI R4, R4, 1
+    BEQZ R2, fin_potencia
+    ADD R16, R0, R0
+    ADDI R17, R0, 1
 bucle_potencia:
-    SLL R17, R17, 4          ;; Multiplicar por 16 (shift left 4 bits)
-    ADDI R16, R16, 1         ;; i++
-    SUB R18, R2, R16         ;; k - i
-    BNEZ R18, bucle_potencia ;; Continuar si i < k
-    ADD R4, R17, R0          ;; Guardar resultado en R4
+    SLL R17, R17, 4
+    ADDI R16, R16, 1
+    SUB R18, R2, R16
+    BNEZ R18, bucle_potencia
+    ADD R4, R17, R0
 fin_potencia:
-    JR R31                   ;; Retornar
+    JR R31
